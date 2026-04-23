@@ -297,16 +297,16 @@ export default function Deliveries() {
               <tbody>
                 {filtered.map(c => (
                   <tr key={c.delivery_id || c.id}>
-                    <td>
+                    <td data-label="Customer">
                       <strong>{getCustomerName(c.customer_id)}</strong>
                     </td>
-                    <td className="td-muted">{c.date}</td>
-                    <td style={{ color: 'var(--accent)', fontWeight: 600 }}>{c.quantity}</td>
-                    <td>{(c.price || 0).toLocaleString()}</td>
-                    <td style={{ color: 'var(--success)', fontWeight: 600 }}>{(c.paid_amount || 0).toLocaleString()}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{c.payment_mode || 'cash'}</td>
-                    <td style={{ color: 'var(--warning)', fontWeight: 600 }}>{c.bottles_given || 0} / {c.bottles_returned || 0}</td>
-                    <td>
+                    <td data-label="Date" className="td-muted">{c.date}</td>
+                    <td data-label="Qty (L)" style={{ color: 'var(--accent)', fontWeight: 600 }}>{c.quantity}</td>
+                    <td data-label="Amount (₹)">{(c.price || 0).toLocaleString()}</td>
+                    <td data-label="Paid (₹)" style={{ color: 'var(--success)', fontWeight: 600 }}>{(c.paid_amount || 0).toLocaleString()}</td>
+                    <td data-label="Mode" style={{ textTransform: 'capitalize' }}>{c.payment_mode || 'cash'}</td>
+                    <td data-label="Bottles (Out/In)" style={{ color: 'var(--warning)', fontWeight: 600 }}>{c.bottles_given || 0} / {c.bottles_returned || 0}</td>
+                    <td data-label="Actions">
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           className="btn btn-secondary btn-icon btn-sm"
@@ -604,9 +604,44 @@ export default function Deliveries() {
         .metric-value.green { color: var(--success); }
         .metric-value.amber { color: var(--warning); }
 
-        @media (max-width: 480px) {
-          .delivery-cards-grid {
-            grid-template-columns: 1fr;
+        @media (max-width: 768px) {
+          .table-wrapper table, 
+          .table-wrapper thead, 
+          .table-wrapper tbody, 
+          .table-wrapper th, 
+          .table-wrapper td, 
+          .table-wrapper tr {
+            display: block;
+          }
+          .table-wrapper thead tr {
+            display: none;
+          }
+          .table-wrapper tr {
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            background: var(--bg-card);
+          }
+          .table-wrapper td {
+            border: none;
+            padding: 6px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .table-wrapper td::before {
+            content: attr(data-label);
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 12px;
+            text-transform: uppercase;
+          }
+          .table-wrapper td:last-child {
+            padding-bottom: 0;
+            margin-top: 8px;
+            border-top: 1px dashed var(--border);
+            padding-top: 12px;
           }
         }
       `}</style>
