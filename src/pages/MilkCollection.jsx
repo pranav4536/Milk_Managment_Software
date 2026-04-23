@@ -58,9 +58,14 @@ export default function MilkCollection() {
 
   const openEdit = (c) => {
     setEditItem(c);
+    // Ensure date is in YYYY-MM-DD format
+    let dateStr = c.date || '';
+    if (dateStr && dateStr.includes('T')) {
+      dateStr = dateStr.split('T')[0];
+    }
     setForm({
       vendor_id: c.vendor_id || '',
-      date: c.date || '',
+      date: dateStr,
       quantity: c.quantity ?? '',
       price: c.price ?? '',
     });
@@ -90,7 +95,7 @@ export default function MilkCollection() {
     try {
       const payload = {
         vendor_id: Number(form.vendor_id),
-        date: form.date,
+        date: form.date || new Date().toISOString().split('T')[0],
         quantity: Number(form.quantity),
         price: Number(form.price),
       };

@@ -43,7 +43,7 @@ export const customersApi = {
 
 // ─── Deliveries ───────────────────────────────────────────────────────────────
 export const deliveriesApi = {
-  getAll: (skip = 0, limit = 100, customer_id = '', from_date = '', to_date = '') => {
+  getAll: (skip = 0, limit = 1000, customer_id = '', from_date = '', to_date = '') => {
     let url = `/deliveries/?skip=${skip}&limit=${limit}`;
     if (customer_id) url += `&customer_id=${customer_id}`;
     if (from_date) url += `&from_date=${from_date}`;
@@ -51,21 +51,14 @@ export const deliveriesApi = {
     return api.get(url);
   },
   getById: (id) => api.get(`/deliveries/${id}`),
-  getByCustomer: (customerId) => api.get(`/deliveries/customer/${customerId}`),
+  getByCustomer: (customerId, skip = 0, limit = 1000) =>
+    api.get(`/deliveries/?customer_id=${customerId}&skip=${skip}&limit=${limit}`),
   create: (data) => api.post('/deliveries/', data),
   update: (id, data) => api.put(`/deliveries/${id}`, data),
   delete: (id) => api.delete(`/deliveries/${id}`),
 };
 
-// ─── Bottle Tracking ──────────────────────────────────────────────────────────
-export const bottleTrackingApi = {
-  getAll: (skip = 0, limit = 100) =>
-    api.get(`/bottle-tracking/?skip=${skip}&limit=${limit}`),
-  getSummary: () => api.get('/bottle-tracking/summary'),
-  create: (data) => api.post('/bottle-tracking/', data),
-  update: (id, data) => api.put(`/bottle-tracking/${id}`, data),
-  delete: (id) => api.delete(`/bottle-tracking/${id}`),
-};
+
 
 // ─── Customer Transactions ──────────────────────────────────────────────────
 export const customerTransactionsApi = {

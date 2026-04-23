@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Milk, Menu, X, Droplets, ChevronRight, Package
+  LayoutDashboard, Users, Milk, X, Droplets, Package, Receipt, Truck
 } from 'lucide-react';
 
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/vendors', icon: Users, label: 'Vendors' },
-  { path: '/customers', icon: Users, label: 'Customers' },
-  { path: '/milk-collection', icon: Milk, label: 'Milk Collection' },
-  { path: '/deliveries', icon: Droplets, label: 'Deliveries' },
-  { path: '/bottle-tracking', icon: Package, label: 'Bottle Tracking' },
+  { path: '/',                        icon: LayoutDashboard, label: 'Dashboard'            },
+  { path: '/vendors',                  icon: Users,           label: 'Vendors'              },
+  { path: '/customers',                icon: Users,           label: 'Customers'            },
+  { path: '/milk-collection',          icon: Milk,            label: 'Milk Collection'      },
+  { path: '/deliveries',               icon: Truck,           label: 'Deliveries'           },
+  { path: '/bottle-tracking',          icon: Package,         label: 'Bottle Tracking'      },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {

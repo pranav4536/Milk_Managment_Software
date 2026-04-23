@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { deliveriesApi, customersApi } from '../api';
-import { Plus, Search, Edit2, Trash2, X, Filter, RefreshCw, Droplets, Calendar } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Filter, RefreshCw, Droplets, Calendar, Receipt } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -11,9 +12,13 @@ const emptyForm = {
   price: '',
   bottles_given: 0,
   bottles_returned: 0,
+  paid_amount: '',
+  payment_mode: 'cash',
+  notes: '',
 };
 
 export default function Deliveries() {
+  const navigate = useNavigate();
   const [deliveries, setDeliveries] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +71,9 @@ export default function Deliveries() {
       price: c.price ?? '',
       bottles_given: c.bottles_given ?? 0,
       bottles_returned: c.bottles_returned ?? 0,
+      paid_amount: c.paid_amount ?? '',
+      payment_mode: c.payment_mode || 'cash',
+      notes: c.notes || '',
     });
     setErrors({});
     setShowModal(true);
@@ -83,6 +91,7 @@ export default function Deliveries() {
     if (form.price === '' || isNaN(Number(form.price)) || Number(form.price) < 0) e.price = 'Enter valid price';
     if (isNaN(Number(form.bottles_given)) || Number(form.bottles_given) < 0) e.bottles_given = 'Enter valid given amount';
     if (isNaN(Number(form.bottles_returned)) || Number(form.bottles_returned) < 0) e.bottles_returned = 'Enter valid return amount';
+    if (form.paid_amount !== '' && (isNaN(Number(form.paid_amount)) || Number(form.paid_amount) < 0)) e.paid_amount = 'Enter valid paid amount';
     return e;
   };
 
@@ -100,6 +109,9 @@ export default function Deliveries() {
         price: Number(form.price),
         bottles_given: Number(form.bottles_given),
         bottles_returned: Number(form.bottles_returned),
+        paid_amount: form.paid_amount !== '' ? Number(form.paid_amount) : 0,
+        payment_mode: form.payment_mode,
+        notes: form.notes,
       };
       if (editItem) {
         const updatePayload = { ...payload };
@@ -131,6 +143,7 @@ export default function Deliveries() {
   const handleDelete = async () => {
     if (!confirmDelete) return;
     setDeleting(true);
+    const custId = confirmDelete.customer_id;
     try {
       await deliveriesApi.delete(confirmDelete.delivery_id || confirmDelete.id);
       toast.success('Record deleted');
@@ -223,6 +236,13 @@ export default function Deliveries() {
 
         <div className="spacer" />
 
+        {filterCustomer && (
+          <button className="btn btn-success" onClick={() => navigate(`/invoice/${filterCustomer}`)} style={{ background: '#25D366', borderColor: '#25D366', color: '#fff' }}>
+            <Receipt size={16} />
+            Generate Invoice
+          </button>
+        )}
+
         <button className="btn btn-secondary btn-sm" onClick={fetchData} id="delivery-refresh-btn">
           <RefreshCw size={14} />
         </button>
@@ -259,58 +279,57 @@ export default function Deliveries() {
           </div>
         </div>
       ) : (
-        <>
-          {/* Mobile Cards */}
-          <div className="delivery-cards-grid">
-            {filtered.map(c => (
-              <div key={c.delivery_id || c.id} className="delivery-card">
-                <div className="delivery-card-top">
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <span className="badge badge-blue">{getCustomerName(c.customer_id)}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13 }}>
-                      <Calendar size={13} />
-                      {c.date}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      className="btn btn-secondary btn-icon btn-sm"
-                      onClick={() => openEdit(c)}
-                      id={`delivery-edit-btn-${c.delivery_id || c.id}`}
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button
-                      className="btn btn-danger btn-icon btn-sm"
-                      onClick={() => setConfirmDelete(c)}
-                      id={`delivery-delete-btn-${c.delivery_id || c.id}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-                <div className="delivery-card-metrics">
-                  <div className="delivery-metric">
-                    <span className="metric-label">Quantity</span>
-                    <span className="metric-value cyan">{c.quantity} L</span>
-                  </div>
-                  <div className="delivery-metric">
-                    <span className="metric-label">Amount</span>
-                    <span className="metric-value green">₹{(c.price || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="delivery-metric" style={{ gridColumn: 'span 2' }}>
-                    <span className="metric-label">Bottles (Given / Returned)</span>
-                    <span className="metric-value amber">
-                      {c.bottles_given || 0} / {c.bottles_returned || 0}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+        <div className="card">
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Date</th>
+                  <th>Qty (L)</th>
+                  <th>Amount (₹)</th>
+                  <th>Paid (₹)</th>
+                  <th>Mode</th>
+                  <th>Bottles (Out/In)</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(c => (
+                  <tr key={c.delivery_id || c.id}>
+                    <td>
+                      <strong>{getCustomerName(c.customer_id)}</strong>
+                    </td>
+                    <td className="td-muted">{c.date}</td>
+                    <td style={{ color: 'var(--accent)', fontWeight: 600 }}>{c.quantity}</td>
+                    <td>{(c.price || 0).toLocaleString()}</td>
+                    <td style={{ color: 'var(--success)', fontWeight: 600 }}>{(c.paid_amount || 0).toLocaleString()}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{c.payment_mode || 'cash'}</td>
+                    <td style={{ color: 'var(--warning)', fontWeight: 600 }}>{c.bottles_given || 0} / {c.bottles_returned || 0}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="btn btn-secondary btn-icon btn-sm"
+                          onClick={() => openEdit(c)}
+                          id={`delivery-edit-btn-${c.delivery_id || c.id}`}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          className="btn btn-danger btn-icon btn-sm"
+                          onClick={() => setConfirmDelete(c)}
+                          id={`delivery-delete-btn-${c.delivery_id || c.id}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </>
+        </div>
       )}
 
       {/* Modal */}
@@ -413,6 +432,49 @@ export default function Deliveries() {
                     />
                     {errors.bottles_returned && <p className="form-error">{errors.bottles_returned}</p>}
                   </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Paid Amount (₹)</label>
+                    <input
+                      id="delivery-paid-amount-input"
+                      className="form-input"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="e.g. 50"
+                      value={form.paid_amount}
+                      onChange={e => setForm({ ...form, paid_amount: e.target.value })}
+                    />
+                    {errors.paid_amount && <p className="form-error">{errors.paid_amount}</p>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Payment Mode</label>
+                    <select
+                      id="delivery-payment-mode-select"
+                      className="form-select"
+                      value={form.payment_mode}
+                      onChange={e => setForm({ ...form, payment_mode: e.target.value })}
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="online">Online</option>
+                      <option value="none">None</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Notes</label>
+                  <input
+                    id="delivery-notes-input"
+                    className="form-input"
+                    type="text"
+                    placeholder="e.g. Partial payment"
+                    value={form.notes}
+                    onChange={e => setForm({ ...form, notes: e.target.value })}
+                  />
                 </div>
               </div>
 

@@ -7,8 +7,9 @@ import Dashboard from './pages/Dashboard';
 import Vendors from './pages/Vendors';
 import MilkCollection from './pages/MilkCollection';
 import Customers from './pages/Customers';
-import Deliveries from './pages/Deliveries';
 import BottleTracking from './pages/BottleTracking';
+import Deliveries from './pages/Deliveries';
+import Invoice from './pages/Invoice';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -20,12 +21,13 @@ export default function App() {
         <div className="main-content">
           <Topbar onMenuClick={() => setSidebarOpen(true)} />
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/vendors" element={<Vendors />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/milk-collection" element={<MilkCollection />} />
-            <Route path="/deliveries" element={<Deliveries />} />
-            <Route path="/bottle-tracking" element={<BottleTracking />} />
+            <Route path="/"                       element={<Dashboard />} />
+            <Route path="/vendors"                element={<Vendors />} />
+            <Route path="/customers"              element={<Customers />} />
+            <Route path="/milk-collection"        element={<MilkCollection />} />
+            <Route path="/bottle-tracking"        element={<BottleTracking />} />
+            <Route path="/deliveries"             element={<Deliveries />} />
+            <Route path="/invoice/:customerId"    element={<Invoice />} />
           </Routes>
         </div>
       </div>
