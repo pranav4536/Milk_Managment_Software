@@ -32,10 +32,10 @@ export default function Invoice() {
       // getByCustomer doesn't have from/to date natively in the wrapper we saw, so let's just use it and filter locally,
       // or we can use getAll with params. Let's use getAll since it has from_date and to_date.
       const delRes = await deliveriesApi.getAll(0, 1000, customerId, fromDate, toDate);
-      
+
       // We might need to filter locally if the API didn't perfectly filter it
       let fetchedDeliveries = delRes.data || [];
-      
+
       // Fallback local filtering just to be safe
       fetchedDeliveries = fetchedDeliveries.filter(d => {
         if (d.customer_id !== Number(customerId)) return false;
@@ -75,45 +75,109 @@ export default function Invoice() {
     const toastId = toast.loading('Generating PDF...');
 
     try {
-      // 1. Generate and download PDF
-      const element = document.querySelector('.a4-page');
-      const filename = `Invoice_${customer.name.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.pdf`;
-      const opt = {
-        margin:       0,
-        filename:     filename,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      
-      await html2pdf().set(opt).from(element).save();
-      toast.success('PDF downloaded! Please attach it to the WhatsApp chat.', { id: toastId, duration: 5000 });
-
-      // 2. Open WhatsApp with text
       const totalAmount = deliveries.reduce((s, d) => s + (d.price || 0), 0);
       const totalPaid = deliveries.reduce((s, d) => s + (d.paid_amount || 0), 0);
       const balance = totalAmount - totalPaid;
 
-      const text = `*Invoice: Geetai Farm Fresh* 🥛\n\n` +
+      let text = `*Invoice: Geetai Farm Fresh* 🥛\n\n` +
         `*Customer:* ${customer.name}\n` +
         `*Period:* ${fromDate} to ${toDate}\n\n` +
         `Please find your detailed invoice PDF attached to this chat.\n\n` +
         `*Summary:*\n` +
         `*Total Bill:* ₹${totalAmount}\n` +
-        `*Pending Balance:* ₹${balance}\n\n` +
-        `Thank you for choosing Geetai Farm Fresh!`;
+        `*Pending Balance:* ₹${balance}\n\n`;
+
+      if (balance > 0) {
+        const qrData = encodeURIComponent(`upi://pay?pa=9309116214@postbank&pn=RESHMA ATUL SHINDE&am=${balance}`);
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${qrData}`;
+        text += `Please pay the pending balance of *₹${balance}* to:\n` +
+          `*UPI ID:* 9309116214@postbank\n\n` +
+          `You can click the link below to view the payment QR code:\n` +
+          `${qrCodeUrl}\n\n` +
+          `*Kindly share a screenshot of the payment here once done.*\n\n`;
+      }
+
+      text += `Thank you for choosing Geetai Farm Fresh!`;
+
+      // 1. Generate PDF configuration
+      const element = document.querySelector('.a4-page');
+      const filename = `Invoice_${customer.name.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.pdf`;
+      const opt = {
+        margin: 0,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      const pdfWorker = html2pdf().set(opt).from(element);
+      const pdfBlob = await pdfWorker.output('blob');
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+
+      let filesToShare = [file];
+      let qrBlobUrl = null;
+
+      if (balance > 0) {
+        try {
+          const qrData = encodeURIComponent(`upi://pay?pa=9309116214@postbank&pn=RESHMA ATUL SHINDE&am=${balance}`);
+          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${qrData}`;
+          const qrResponse = await fetch(qrUrl);
+          const qrBlob = await qrResponse.blob();
+          const qrFile = new File([qrBlob], `Payment_QR_${customer.name.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
+          filesToShare.push(qrFile);
+          qrBlobUrl = URL.createObjectURL(qrBlob);
+        } catch (e) {
+          console.error("Failed to fetch QR code blob", e);
+        }
+      }
+
+      // 2. Try to use Web Share API (Works mainly on Mobile / Supported browsers)
+      if (navigator.canShare && navigator.canShare({ files: filesToShare })) {
+        try {
+          await navigator.share({
+            files: filesToShare,
+            title: `Invoice for ${customer.name}`,
+            text: text
+          });
+          toast.success('Invoice & QR Code shared successfully!', { id: toastId });
+          if (qrBlobUrl) URL.revokeObjectURL(qrBlobUrl);
+          return; // Exit if share was successful
+        } catch (shareError) {
+          console.log('Share was cancelled or failed:', shareError);
+          if (shareError.name === 'AbortError') {
+            toast.dismiss(toastId);
+            if (qrBlobUrl) URL.revokeObjectURL(qrBlobUrl);
+            return;
+          }
+        }
+      }
+
+      // 3. Fallback for Desktop / Unsupported Browsers
+      await html2pdf().set(opt).from(element).save();
+
+      if (qrBlobUrl) {
+        const link = document.createElement('a');
+        link.href = qrBlobUrl;
+        link.download = `Payment_QR_${customer.name.replace(/\s+/g, '_')}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(qrBlobUrl);
+      }
+
+      toast.success(balance > 0 ? 'PDF and QR Code downloaded! Please attach them to the WhatsApp chat.' : 'PDF downloaded! Please attach it to the WhatsApp chat.', { id: toastId, duration: 5000 });
 
       const encodedText = encodeURIComponent(text);
       const cleanPhone = customer.phone.replace(/\D/g, '');
       const phoneWithCode = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-      
+
       setTimeout(() => {
         window.open(`https://wa.me/${phoneWithCode}?text=${encodedText}`, '_blank');
       }, 1000);
 
     } catch (error) {
       console.error(error);
-      toast.error('Failed to generate PDF', { id: toastId });
+      toast.error('Failed to process WhatsApp share', { id: toastId });
     }
   };
 
@@ -172,7 +236,7 @@ export default function Invoice() {
           </div>
           <div className="invoice-meta">
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p><strong>GSTIN:</strong> 27AAAAA0000A1Z5</p>
+            <p><strong>GSTIN:</strong> 27ADFPW3629M1ZW</p>
           </div>
         </div>
 
@@ -242,19 +306,20 @@ export default function Invoice() {
 
         {/* Payment & Totals Summary */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '20px', marginBottom: '40px' }}>
-          
+
           {/* Payment Info */}
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: '#f7fafc', maxWidth: '350px' }}>
             <h4 style={{ marginBottom: '12px', color: '#4a5568', fontSize: '14px' }}>Payment Details</h4>
             <div style={{ display: 'flex', gap: '16px' }}>
               <div style={{ width: '100px', height: '100px', background: '#fff', border: '1px solid #cbd5e0', padding: '4px', borderRadius: '4px' }}>
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=geetaifarmfresh@ybl&pn=Geetai%20Farm%20Fresh&am=${balance > 0 ? balance : ''}`} alt="Payment QR" style={{ width: '100%', height: '100%' }} />
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=9309116214@postbank&pn=RESHMA%20ATUL%20SHINDE&am=${balance > 0 ? balance : ''}`} alt="Payment QR" style={{ width: '100%', height: '100%' }} />
               </div>
               <div style={{ fontSize: '12px', color: '#4a5568', lineHeight: '1.6' }}>
-                <p><strong>Bank:</strong> State Bank of India</p>
-                <p><strong>A/C Name:</strong> Geetai Farm Fresh</p>
-                <p><strong>A/C No:</strong> 30201012345</p>
-                <p><strong>IFSC:</strong> SBIN0001234</p>
+                <p><strong>Bank:</strong> India Post Payment Bank</p>
+                <p><strong>A/C Name:</strong> Reshma Atul Shinde</p>
+                <p><strong>A/C No:</strong> 034910251165</p>
+                <p><strong>IFSC:</strong> IPOS0000001</p>
+                <p><strong>UPI ID:</strong> 9309116214@postbank</p>
               </div>
             </div>
           </div>
